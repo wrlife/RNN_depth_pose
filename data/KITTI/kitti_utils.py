@@ -1,21 +1,3 @@
-#
-#  DeMoN - Depth Motion Network
-#  Copyright (C) 2017  Benjamin Ummenhofer, Huizhong Zhou
-#  
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#  
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#  
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-import os
 import math
 import itertools
 import numpy as np
@@ -101,7 +83,7 @@ def generate_depth_map(P_velo2im, velo, im_shape, interp=False, vel_depth=False)
     #import pdb;pdb.set_trace()
     # project the points to the camera
     velo_pts_im = np.dot(P_velo2im, velo.T).T
-    
+
     velo_pts_im[:, :2] = velo_pts_im[:,:2] / velo_pts_im[:,2][..., np.newaxis]
 
     if vel_depth:
@@ -119,7 +101,7 @@ def generate_depth_map(P_velo2im, velo, im_shape, interp=False, vel_depth=False)
     depth = np.zeros((im_shape))
     depth[velo_pts_im[:, 1].astype(np.int), velo_pts_im[:, 0].astype(np.int)] = velo_pts_im[:, 2]
 
-    
+
     # find the duplicate points and choose the closest depth
     inds = sub2ind(depth.shape, velo_pts_im[:, 1], velo_pts_im[:, 0])
     dupe_inds = [item for item, count in Counter(inds).items() if count > 1]
@@ -129,7 +111,7 @@ def generate_depth_map(P_velo2im, velo, im_shape, interp=False, vel_depth=False)
         y_loc = int(velo_pts_im[pts[0], 1])
         depth[y_loc, x_loc] = velo_pts_im[pts, 2].min()
     depth[depth<0] = 0
-    
+
     if interp:
         # interpolate the depth map to fill in holes
         depth_interp = lin_interp(im_shape, velo_pts_im)
@@ -161,14 +143,14 @@ def read_image_depth_from_idx(dataset,idx,resizedwidth,resizedheight):
     #velo = dataset.get_velo(idx)
     pose =  np.dot(dataset.calib.T_cam3_imu, dataset.oxts[idx].T_w_imu)
     #import pdb;pdb.set_trace()
-    #depth = generate_depth_map(np.dot(dataset.calib.P_rect_20,dataset.calib.T_cam2_velo), velo, image.shape[:2])  
-    return image,pose#,depth  
+    #depth = generate_depth_map(np.dot(dataset.calib.P_rect_20,dataset.calib.T_cam2_velo), velo, image.shape[:2])
+    return image,pose#,depth
 
-def Rui_create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path, seq_name, max_views_num=10):
+def create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path, seq_name, max_views_num=10):
     """Read a KITTI sequence and write samples to the tfrecordfile
-    
+
     tfrecordfile: tensorflow data format
-    
+
     kitti_path: str
         base path to the kitti data
 
@@ -187,7 +169,7 @@ def Rui_create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path,
     drive = seq_name[-9:-5]
 
     dataset = pykitti.raw(kitti_path, date, drive)
-    
+
     #A tuple to store information for each view
     View_kitti = namedtuple('View', {'P', 'K', 'image', 'depth'})
 
@@ -199,11 +181,11 @@ def Rui_create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path,
 
     if len(dataset.velo_files)<=0:
     	return 0
-    	
+
     image = np.array(dataset.get_cam3(0))
 
     ori_height, ori_width = image.shape[:2]
-    
+
 
     intrinsics = intrinsics_ori.copy()
     intrinsics[0, 0] = intrinsics_ori[0, 0] * resizedwidth / ori_width
@@ -220,7 +202,7 @@ def Rui_create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path,
 
     for idx in range(len(dataset.velo_files)):
 
-        
+
         file = dataset.cam3_files[idx].split('/')[-1]
         depth_file = os.path.join(depth_path,seq_name,'proj_depth','groundtruth','image_03',file)
         if not os.path.isfile(depth_file):
@@ -235,7 +217,7 @@ def Rui_create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path,
         # import pdb;pdb.set_trace()
         # plt.imsave("image2.png", image)
         # plt.imsave("depth2.png", depth, cmap='plasma')
-        
+
         view1 = View_kitti(P=pose, K=intrinsics, image=image, depth=depth)
         views = [view1]
 
@@ -246,7 +228,7 @@ def Rui_create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path,
         if(idx+9>=len(dataset.velo_files)):
             break
 
-        for idx2 in range(idx+1,len(dataset.velo_files)):           
+        for idx2 in range(idx+1,len(dataset.velo_files)):
 
             file = dataset.cam3_files[idx2].split('/')[-1]
             depth_file = os.path.join(depth_path,seq_name,'proj_depth','groundtruth','image_03',file)
@@ -261,7 +243,7 @@ def Rui_create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path,
             #Check whether the scene is static
             T_curr = pose[0:3,3]
             R_curr = pose[0:3,0:3]
-            baseline = np.linalg.norm((-R_pre.transpose().dot(T_pre)) - (-R_curr.transpose().dot(T_curr)))            
+            baseline = np.linalg.norm((-R_pre.transpose().dot(T_pre)) - (-R_curr.transpose().dot(T_curr)))
             #import pdb;pdb.set_trace()
             if baseline < 0.3:
                 continue
@@ -286,17 +268,17 @@ def Rui_create_samples_from_sequence_kitti(tfrecordfile, kitti_path, depth_path,
                 'depth_seq': _bytes_feature(concat_depth.tostring()),
                 'motion_seq': _bytes_feature(concat_motion.tostring()),
                 'intrinsics': _bytes_feature(intrinsics.tostring()),
-                }))   
+                }))
 
             writer.write(example.SerializeToString())
-            generated_groups += 1 
+            generated_groups += 1
 
     print(np.mean(mean_baseline))
-    writer.close() 
-    return generated_groups        
+    writer.close()
+    return generated_groups
 
 # def main():
-#     Rui_create_samples_from_sequence_kitti('test', '/playpen1/datasets/KITTI/KITTI_raw/', '2011_09_26_drive_0018_sync')
+#     create_samples_from_sequence_kitti('test', '/playpen1/datasets/KITTI/KITTI_raw/', '2011_09_26_drive_0018_sync')
 
 # if __name__ == "__main__":
 #     sys.exit(main())
